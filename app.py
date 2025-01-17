@@ -12,7 +12,7 @@ from utility.render.render_engine import get_output_media
 from utility.video.video_search_query_generator import getVideoSearchQueriesTimed, merge_empty_intervals
 import argparse
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a video from a topic.")
     parser.add_argument("topic", type=str, help="The topic for the video")
 
