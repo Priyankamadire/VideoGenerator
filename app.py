@@ -50,8 +50,6 @@ def fetch_article_content(url):
         print(f"Error fetching article: {e}")
         return None, None
 
-
-
 async def generate_video_from_article(url):
     """
     Generates a video from an article by extracting content, generating script, audio, captions,
@@ -105,7 +103,6 @@ async def generate_video_from_article(url):
             print("No video generated due to lack of background video URLs.")
     except Exception as e:
         print(f"Error during video generation: {e}")
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
