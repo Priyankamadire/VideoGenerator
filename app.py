@@ -8,7 +8,7 @@ from utility.captions.timed_captions_generator import generate_timed_captions
 from utility.render.render_engine import get_output_media
 from utility.video.background_video_generator import generate_video_url
 from utility.video.video_search_query_generator import getVideoSearchQueriesTimed, merge_empty_intervals
-
+#get article content
 def fetch_article_content(url):
     """
     Fetches article content from a given URL and parses it using BeautifulSoup.
@@ -33,7 +33,7 @@ def fetch_article_content(url):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching article: {e}")
         return None, None
-
+#video generation
 async def generate_video_from_article(url):
     """
     Generates a video from an article by extracting content, generating script, audio, captions, 
