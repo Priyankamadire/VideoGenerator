@@ -8,28 +8,48 @@ from utility.captions.timed_captions_generator import generate_timed_captions
 from utility.render.render_engine import get_output_media
 from utility.video.background_video_generator import generate_video_url
 from utility.video.video_search_query_generator import getVideoSearchQueriesTimed, merge_empty_intervals
+from urllib.parse import urlparse
 
+def is_valid_url(url):
+    """
+    Check if the given URL is valid by trying to parse it.
+    
+    :param url: The URL to check.
+    :return: Boolean indicating if the URL is valid.
+    """
+    parsed_url = urlparse(url)
+    return bool(parsed_url.scheme) and bool(parsed_url.netloc)
 
 def fetch_article_content(url):
     """
     Fetches article content from a given URL and parses it using BeautifulSoup.
 
     :param url: The URL of the article.
-    :return: Tuple containing the title and article content.
+    :return: Tuple containing the title and article content, or (None, None) if invalid.
     """
+    # Check if the URL is valid
+    if not is_valid_url(url):
+        print("Invalid URL provided. Please check the URL and try again.")
+        return None, None
+    
     try:
+        # Fetch article content using requests
         response = requests.get(url)
-        response.raise_for_status()
-
+        response.raise_for_status()  # Will raise an error for 4xx/5xx status codes
+        
+        # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract title and body content (adjust depending on structure)
         title = soup.title.string.strip() if soup.title else "Untitled Article"
         paragraphs = soup.find_all('p')
         article_content = "\n".join(para.get_text().strip() for para in paragraphs if para.get_text())
-
+        
         return title, article_content
     except requests.exceptions.RequestException as e:
         print(f"Error fetching article: {e}")
         return None, None
+
 
 
 async def generate_video_from_article(url):
