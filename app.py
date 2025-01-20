@@ -1,89 +1,96 @@
-import argparse
-import asyncio
+import sys
 import requests
+import asyncio
 from bs4 import BeautifulSoup
-from utility.script.script_generator import generate_script
+from utility.script.script_generator import generate_script_from_article
 from utility.audio.audio_generator import generate_audio
 from utility.captions.timed_captions_generator import generate_timed_captions
-from utility.render.render_engine import render_video
-from utility.video.video_search_query_generator import generate_video_url, merge_empty_intervals
+from utility.render.render_engine import get_output_media
+from utility.video.background_video_generator import generate_video_url
+from utility.video.video_search_query_generator import getVideoSearchQueriesTimed, merge_empty_intervals
 
-def scrape_article_content(article_url):
+def fetch_article_content(url):
+    """
+    Fetches article content from a given URL and parses it using BeautifulSoup.
+    
+    :param url: The URL of the article.
+    :return: Tuple containing the title and article content.
+    """
     try:
-        response = requests.get(article_url)
-        response.raise_for_status()
+        # Fetch article content using requests
+        response = requests.get(url)
+        response.raise_for_status()  # Will raise an error for 4xx/5xx status codes
+        
+        # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract title and body content (adjust depending on structure)
+        title = soup.title.string if soup.title else "No title"
         paragraphs = soup.find_all('p')
-        article_content = " ".join([p.get_text(strip=True) for p in paragraphs])
+        article_content = "\n".join([para.get_text() for para in paragraphs])
+        
+        return title, article_content
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching article: {e}")
+        return None, None
 
-        if not article_content:
-            raise ValueError("No content found in the article.")
+async def generate_video_from_article(url):
+    """
+    Generates a video from an article by extracting content, generating script, audio, captions, 
+    and background video based on the script.
+    
+    :param url: The URL of the article.
+    """
+    # Fetch and parse article content
+    title, article_content = fetch_article_content(url)
+    if not article_content:
+        print("Failed to fetch or parse article.")
+        return
+    
+    print(f"Processing article: {title}")
+    
+    # Generate script from article content
+    script = generate_script_from_article(article_content)
+    print("Generated Script: ", script)
+    
+    # Generate audio from script
+    audio_filename = "audio_output.mp3"
+    await generate_audio(script, audio_filename)
 
-        return article_content
-    except Exception as e:
-        raise Exception(f"Error scraping article content: {e}")
+    # Generate timed captions from audio file
+    timed_captions = generate_timed_captions(audio_filename)
+    
+    # Generate video search queries based on script and timed captions
+    search_terms = getVideoSearchQueriesTimed(script, timed_captions)
+    print("Search Terms: ", search_terms)
+
+    # Generate background video URLs based on the search terms
+    background_video_urls = None
+    if search_terms:
+        background_video_urls = generate_video_url(search_terms, "pexel")
+        print("Background Video URLs: ", background_video_urls)
+    else:
+        print("No background video found.")
+
+    # Merge empty intervals if needed (this may be optional depending on your use case)
+    if background_video_urls:
+        background_video_urls = merge_empty_intervals(background_video_urls)
+        print(f"Final Background Video URLs: {background_video_urls}")
+    
+    # Create the final video with audio, captions, and background video
+    if background_video_urls:
+        final_video = get_output_media(audio_filename, timed_captions, background_video_urls, video_server="pexel")
+        print(f"Video generated and saved as {final_video}")
+    else:
+        print("No video generated due to lack of background video URLs.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate a video from an article URL.")
-    parser.add_argument("url", type=str, help="The URL of the article to convert into a video")
-    parser.add_argument("--output", type=str, default="output_video.mp4", help="The name of the output video file")
-
-    args = parser.parse_args()
-    ARTICLE_URL = args.url
-    OUTPUT_FILE_NAME = args.output
-    AUDIO_FILE_NAME = "audio_tts.wav"
-    VIDEO_SERVER = "pexel"
-
-    try:
-        article_content = scrape_article_content(ARTICLE_URL)
-        print(f"Scraped Article Content: {article_content[:500]}...")
-    except Exception as e:
-        print(f"Error scraping article content: {e}")
-        exit(1)
-
-    try:
-        script = generate_script(article_content)
-        print(f"Generated Script: {script}")
-    except Exception as e:
-        print(f"Error generating script: {e}")
-        exit(1)
-
-    try:
-        asyncio.run(generate_audio(script, AUDIO_FILE_NAME))
-        print(f"Audio file generated: {AUDIO_FILE_NAME}")
-    except Exception as e:
-        print(f"Error generating audio: {e}")
-        exit(1)
-
-    try:
-        timed_captions = generate_timed_captions(AUDIO_FILE_NAME)
-        print(f"Timed Captions: {timed_captions}")
-    except Exception as e:
-        print(f"Error generating timed captions: {e}")
-        exit(1)
-
-    try:
-        search_terms = generate_video_url(script, timed_captions)
-        print(f"Search Terms for Videos: {search_terms}")
-    except Exception as e:
-        print(f"Error generating search terms: {e}")
-        search_terms = None
-
-    try:
-        background_video_urls = merge_empty_intervals(search_terms)
-        if background_video_urls:
-            print(f"Background Video URLs: {background_video_urls}")
-        else:
-            print("No background video URLs found.")
-    except Exception as e:
-        print(f"Error merging empty intervals: {e}")
-        background_video_urls = None
-
-    try:
-        if background_video_urls:
-            render_video(AUDIO_FILE_NAME, timed_captions, background_video_urls, OUTPUT_FILE_NAME, VIDEO_SERVER)
-            print(f"Video successfully created: {OUTPUT_FILE_NAME}")
-        else:
-            print("No video rendered due to missing background videos.")
-    except Exception as e:
-        print(f"Error rendering video: {e}")
+    if len(sys.argv) < 2:
+        print("Please provide the article URL.")
+        sys.exit(1)
+    
+    # Get the article URL from command-line arguments
+    url = sys.argv[1]
+    
+    # Run the async function with asyncio
+    asyncio.run(generate_video_from_article(url))
