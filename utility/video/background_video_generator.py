@@ -1,27 +1,39 @@
 import os
 import requests
 from utility.utils import log_response, LOG_TYPE_PEXEL
-
+import spacy
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
 # Step 1: Extract Keywords from Summarized Script
+
+nlp = spacy.load("en_core_web_sm")
+
 def extract_keywords_from_script(script):
     """
-    Extract visually concrete keywords from the summarized script.
+    Extract visually concrete keywords from the summarized script using NLP.
     
     :param script: Summarized script
     :return: List of keywords
     """
-    # Simple logic to extract keywords (You can refine this with NLP libraries)
+    # Process the script with spaCy
+    doc = nlp(script)
+    
+    # Initialize the list of keywords
     keywords = []
-    sentences = script.split(".")  # Split the script into sentences
     
-    for sentence in sentences:
-        # If sentence has more than 3 words, it's likely useful for video search
-        if len(sentence.split()) > 3:
-            keywords.append(sentence.strip())
+    # Extract nouns, adjectives, and verbs (POS tagging)
+    for sentence in script.split("."):  # Split the script into sentences
+        if len(sentence.split()) > 3:  # Only consider sentences with more than 3 words
+            for token in nlp(sentence):  # Process each sentence separately
+                if token.pos_ in ["NOUN", "ADJ", "VERB"]:
+                    keywords.append(token.text)
     
-    return keywords
+    # Optionally, add Named Entity Recognition (NER) results
+    for ent in doc.ents:
+        keywords.append(ent.text)
+    
+    return list(set(keywords))  # Return unique keywords
+
 
 # Step 2: Search for Videos on Pexels API
 def search_videos(query_string, orientation_landscape=True):
