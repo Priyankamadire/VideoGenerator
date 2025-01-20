@@ -4,7 +4,7 @@ from utility.utils import log_response, LOG_TYPE_PEXEL
 
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
-# Step 1: Extract Keywords from Summarized Script
+# Step 1: Extracting Keywords from Summarized Script
 def extract_keywords_from_script(script):
     """
     Extract visually concrete keywords from the summarized script.
@@ -23,7 +23,7 @@ def extract_keywords_from_script(script):
     
     return keywords
 
-# Step 2: Search for Videos on Pexels API
+# Step 2: Searching for Videos on Pexels API
 def search_videos(query_string, orientation_landscape=True):
     """
     Search for videos using the Pexels API.
