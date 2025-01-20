@@ -5,7 +5,7 @@ from utility.utils import log_response, LOG_TYPE_PEXEL
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
 # Step 1: Extracting Keywords from Summarized Script
-def extract_keywords_from_script(script):
+def extract_keywords_from_script(script):  
     """
     Extract visually concrete keywords from the summarized script.
     
