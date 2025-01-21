@@ -1,13 +1,13 @@
 import os
 import requests
-import openai
+from openai import OpenAI
 from utility.utils import log_response, LOG_TYPE_PEXEL
 
 # Fetch the Pexels API Key from environment variables
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
 # OpenAI API Key
-openai.api_key = os.getenv('OPENAI_KEY')  # Fetch OpenAI API key from environment variables
+OPENAI_API_KEY = os.getenv('OPENAI_KEY')  # Fetch OpenAI API key from environment variables
 
 def extract_keywords_from_script(script):
     """
@@ -29,11 +29,14 @@ def extract_keywords_from_script(script):
             temperature=0.5
         )
         keywords = response.choices[0].text.strip()
+        
+        # Ensure keywords are returned and not empty
         if not keywords:
             raise ValueError("No keywords extracted.")
         
-        keywords_list = keywords.split(',')
-        return [keyword.strip() for keyword in keywords_list]  # Clean and return keywords
+        # Split and clean keywords
+        keywords_list = [keyword.strip() for keyword in keywords.split(',')]
+        return keywords_list
     except Exception as e:
         print(f"Error extracting keywords: {e}")
         return []
@@ -47,7 +50,7 @@ def search_videos(query_string, orientation_landscape=True):
     :return: JSON response containing video data
     """
     if not query_string:
-        print("No search terms provided.")
+        print("No valid search terms provided.")
         return {}
 
     url = "https://api.pexels.com/videos/search"
@@ -80,9 +83,13 @@ def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
     :param used_vids: List of previously used video links to avoid reuse
     :return: URL of the best video or None if no valid video is found
     """
+    if not query_string:
+        print(f"Skipping video search for empty query string.")
+        return None  # Skip if no valid search term
+
     videos_data = search_videos(query_string, orientation_landscape)
     if 'videos' not in videos_data:
-        print("No videos found for query:", query_string)
+        print(f"No videos found for query: {query_string}")
         return None  # Return None if 'videos' key doesn't exist in the response
 
     videos = videos_data['videos']
@@ -120,7 +127,7 @@ def generate_video_url(timed_video_searches, video_server="pexel"):
         for (t1, t2), search_terms in timed_video_searches:
             if not search_terms:
                 print(f"Skipping empty search terms for interval ({t1}, {t2})")
-                continue
+                continue  # Skip if search terms are empty
 
             url = None
             for query in search_terms:
@@ -145,6 +152,7 @@ def generate_video_from_article(script):
         # Step 1: Extract keywords
         keywords = extract_keywords_from_script(script)
 
+        # Check if keywords are empty
         if not keywords:
             print("No keywords extracted, skipping video generation.")
             return []
@@ -155,6 +163,7 @@ def generate_video_from_article(script):
         # Step 3: Generate video URLs using the video server
         timed_video_urls = generate_video_url(timed_video_searches, video_server="pexel")
 
+        # Check if no valid video URLs were found
         if not timed_video_urls:
             print("No background video found.")
             return []
