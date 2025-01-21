@@ -1,12 +1,13 @@
 import os
 import requests
-from utility.utils import log_response, LOG_TYPE_PEXEL
 import openai
+from utility.utils import log_response, LOG_TYPE_PEXEL
+
 # Fetch the Pexels API Key from environment variables
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
-# Step 1: Extract Keywords from Summarized Script
-openai.api_key = "your_openai_api_key"
+# OpenAI API Key
+openai.api_key = os.getenv('OPENAI_KEY')  # Fetch OpenAI API key from environment variables
 
 def extract_keywords_from_script(script):
     """
@@ -15,26 +16,28 @@ def extract_keywords_from_script(script):
     :param script: Summarized script as a string
     :return: List of keywords
     """
-    # Tokenize the script into sentences
-    sentences = script.split(".")
+    sentences = script.split(".")  # Tokenize the script into sentences
     
     # Prepare the prompt for extracting keywords
     prompt = "Extract visually concrete keywords from the following text:\n" + script + "\nKeywords:"
     
-    # Use OpenAI API to extract keywords
     try:
         response = openai.Completion.create(
-            engine="text-davinci-003",  # Or a different LLM engine
+            engine="text-davinci-003",  # You can use GPT-4 if available
             prompt=prompt,
             max_tokens=100,
             temperature=0.5
         )
-        keywords = response.choices[0].text.strip().split(',')  # Extract keywords separated by commas
-        return [keyword.strip() for keyword in keywords]  # Clean and return keywords
+        keywords = response.choices[0].text.strip()
+        if not keywords:
+            raise ValueError("No keywords extracted.")
+        
+        keywords_list = keywords.split(',')
+        return [keyword.strip() for keyword in keywords_list]  # Clean and return keywords
     except Exception as e:
         print(f"Error extracting keywords: {e}")
         return []
-# Step 2: Search Videos on Pexels API
+
 def search_videos(query_string, orientation_landscape=True):
     """
     Search for videos using the Pexels API.
@@ -43,6 +46,10 @@ def search_videos(query_string, orientation_landscape=True):
     :param orientation_landscape: Boolean flag to specify landscape (True) or portrait (False) orientation
     :return: JSON response containing video data
     """
+    if not query_string:
+        print("No search terms provided.")
+        return {}
+
     url = "https://api.pexels.com/videos/search"
     headers = {
         "Authorization": PEXELS_API_KEY,
@@ -64,7 +71,6 @@ def search_videos(query_string, orientation_landscape=True):
         print(f"Error fetching videos: {e}")
         return {}
 
-# Step 3: Get the Best Video Based on Search Keywords
 def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
     """
     Get the best video URL from the Pexels API based on search query and orientation.
@@ -76,6 +82,7 @@ def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
     """
     videos_data = search_videos(query_string, orientation_landscape)
     if 'videos' not in videos_data:
+        print("No videos found for query:", query_string)
         return None  # Return None if 'videos' key doesn't exist in the response
 
     videos = videos_data['videos']
@@ -98,7 +105,6 @@ def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
 
     return None
 
-# Step 4: Generate Video URLs for Timed Video Searches
 def generate_video_url(timed_video_searches, video_server="pexel"):
     """
     Generate video URLs for each segment based on timed video searches.
@@ -112,6 +118,10 @@ def generate_video_url(timed_video_searches, video_server="pexel"):
     if video_server == "pexel":
         used_links = []
         for (t1, t2), search_terms in timed_video_searches:
+            if not search_terms:
+                print(f"Skipping empty search terms for interval ({t1}, {t2})")
+                continue
+
             url = None
             for query in search_terms:
                 url = get_best_video(query, orientation_landscape=True, used_vids=used_links)
@@ -124,7 +134,6 @@ def generate_video_url(timed_video_searches, video_server="pexel"):
 
     return timed_video_urls
 
-# Step 5: Generate Video from Script
 def generate_video_from_article(script):
     """
     Generate a video from the summarized script by searching for relevant background videos.
@@ -136,13 +145,33 @@ def generate_video_from_article(script):
         # Step 1: Extract keywords
         keywords = extract_keywords_from_script(script)
 
+        if not keywords:
+            print("No keywords extracted, skipping video generation.")
+            return []
+
         # Step 2: Generate timed video searches
         timed_video_searches = [[(0, 15), [keyword]] for keyword in keywords]
 
         # Step 3: Generate video URLs using the video server
         timed_video_urls = generate_video_url(timed_video_searches, video_server="pexel")
 
+        if not timed_video_urls:
+            print("No background video found.")
+            return []
+
         return timed_video_urls
     except Exception as e:
         print(f"Error generating video from article: {e}")
-        return None
+        return []
+
+# Example usage:
+if __name__ == "__main__":
+    script = """
+    A great way to improve your coding skills is to practice daily. Start by solving small problems, and gradually increase the difficulty. 
+    Reading and understanding existing code will also help. Collaborating with others or joining coding communities is a great way to stay motivated.
+    """
+    video_urls = generate_video_from_article(script)
+    if video_urls:
+        print("Video URLs generated:", video_urls)
+    else:
+        print("No video generated due to lack of background video URLs.")
