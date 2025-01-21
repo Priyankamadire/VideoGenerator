@@ -1,27 +1,39 @@
 import os
 import requests
 from utility.utils import log_response, LOG_TYPE_PEXEL
-
+import openai
 # Fetch the Pexels API Key from environment variables
 PEXELS_API_KEY = os.environ.get('PEXELS_KEY')
 
 # Step 1: Extract Keywords from Summarized Script
+openai.api_key = "your_openai_api_key"
+
 def extract_keywords_from_script(script):
     """
-    Extract visually concrete keywords from the summarized script.
+    Extract visually concrete keywords from the summarized script using a language model.
 
     :param script: Summarized script as a string
     :return: List of keywords
     """
-    keywords = []
-    sentences = script.split(".")  # Split the script into sentences
-
-    for sentence in sentences:
-        if len(sentence.split()) > 3:  # Consider sentences with more than 3 words
-            keywords.append(sentence.strip())
-
-    return keywords
-
+    # Tokenize the script into sentences
+    sentences = script.split(".")
+    
+    # Prepare the prompt for extracting keywords
+    prompt = "Extract visually concrete keywords from the following text:\n" + script + "\nKeywords:"
+    
+    # Use OpenAI API to extract keywords
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",  # Or a different LLM engine
+            prompt=prompt,
+            max_tokens=100,
+            temperature=0.5
+        )
+        keywords = response.choices[0].text.strip().split(',')  # Extract keywords separated by commas
+        return [keyword.strip() for keyword in keywords]  # Clean and return keywords
+    except Exception as e:
+        print(f"Error extracting keywords: {e}")
+        return []
 # Step 2: Search Videos on Pexels API
 def search_videos(query_string, orientation_landscape=True):
     """
