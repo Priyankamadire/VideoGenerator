@@ -12,9 +12,6 @@ OPENAI_API_KEY = os.getenv('OPENAI_KEY')  # Fetch OpenAI API key from environmen
 def extract_keywords_from_script(script):
     """
     Extract visually concrete keywords from the summarized script using a language model.
-
-    :param script: Summarized script as a string
-    :return: List of keywords
     """
     sentences = script.split(".")  # Tokenize the script into sentences
     
@@ -44,10 +41,6 @@ def extract_keywords_from_script(script):
 def search_videos(query_string, orientation_landscape=True):
     """
     Search for videos using the Pexels API.
-
-    :param query_string: The search term for finding videos
-    :param orientation_landscape: Boolean flag to specify landscape (True) or portrait (False) orientation
-    :return: JSON response containing video data
     """
     if not query_string:
         print("No valid search terms provided.")
@@ -68,6 +61,11 @@ def search_videos(query_string, orientation_landscape=True):
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()  # Raise an error for HTTP status codes != 200
         json_data = response.json()
+
+        # Validate JSON structure
+        if not isinstance(json_data, dict) or 'videos' not in json_data:
+            raise ValueError("Invalid JSON structure: 'videos' key missing.")
+
         log_response(LOG_TYPE_PEXEL, query_string, json_data)  # Optional: Log the response
         return json_data
     except requests.exceptions.RequestException as e:
@@ -77,11 +75,6 @@ def search_videos(query_string, orientation_landscape=True):
 def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
     """
     Get the best video URL from the Pexels API based on search query and orientation.
-
-    :param query_string: The search term for finding videos
-    :param orientation_landscape: Boolean flag for landscape (True) or portrait (False) orientation
-    :param used_vids: List of previously used video links to avoid reuse
-    :return: URL of the best video or None if no valid video is found
     """
     if not query_string:
         print(f"Skipping video search for empty query string.")
@@ -97,28 +90,24 @@ def get_best_video(query_string, orientation_landscape=True, used_vids=[]):
     # Filter videos by resolution and aspect ratio
     filtered_videos = [
         video for video in videos if
-        (video['width'] / video['height'] == (16 / 9) if orientation_landscape else (9 / 16))
+        (video.get('width') / video.get('height') == (16 / 9) if orientation_landscape else (9 / 16))
     ]
 
     # Sort videos by duration closest to 15 seconds
-    sorted_videos = sorted(filtered_videos, key=lambda x: abs(15 - int(x['duration'])))
+    sorted_videos = sorted(filtered_videos, key=lambda x: abs(15 - int(x.get('duration', 0))))
 
     # Select the best video that hasn't been used
     for video in sorted_videos:
-        for video_file in video['video_files']:
-            if video_file['link'] not in used_vids:
-                used_vids.append(video_file['link'])
-                return video_file['link']
+        for video_file in video.get('video_files', []):
+            if video_file.get('link') not in used_vids:
+                used_vids.append(video_file.get('link'))
+                return video_file.get('link')
 
     return None
 
 def generate_video_url(timed_video_searches, video_server="pexel"):
     """
     Generate video URLs for each segment based on timed video searches.
-
-    :param timed_video_searches: List of tuples containing time intervals and search terms (keywords)
-    :param video_server: The video server to use ('pexel' or 'stable_diffusion')
-    :return: List of timed video URLs
     """
     timed_video_urls = []
 
@@ -144,9 +133,6 @@ def generate_video_url(timed_video_searches, video_server="pexel"):
 def generate_video_from_article(script):
     """
     Generate a video from the summarized script by searching for relevant background videos.
-
-    :param script: The summarized script
-    :return: List of timed video URLs
     """
     try:
         # Step 1: Extract keywords
