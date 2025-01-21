@@ -163,15 +163,3 @@ def generate_video_from_article(script):
     except Exception as e:
         print(f"Error generating video from article: {e}")
         return []
-
-# Example usage:
-if __name__ == "__main__":
-    script = """
-    A great way to improve your coding skills is to practice daily. Start by solving small problems, and gradually increase the difficulty. 
-    Reading and understanding existing code will also help. Collaborating with others or joining coding communities is a great way to stay motivated.
-    """
-    video_urls = generate_video_from_article(script)
-    if video_urls:
-        print("Video URLs generated:", video_urls)
-    else:
-        print("No video generated due to lack of background video URLs.")
